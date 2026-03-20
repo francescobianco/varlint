@@ -34,6 +34,25 @@ varlint --only VL01,VL02 lib/*.sh
 varlint --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh
 ```
 
+## Glob patterns
+
+varlint expands glob patterns internally with full `**` recursive support. Quote the pattern so the shell does not expand it first:
+
+```bash
+varlint '**/*.sh'
+varlint './**/*.sh' --strict
+varlint 'src/**/*.sh' --only VL01,VL07
+```
+
+Without quotes, the shell expands the pattern before varlint sees it. Without `globstar` enabled in your shell, `**` only goes one level deep and subdirectories are missed. Quoting passes the pattern to varlint intact, which always expands it recursively regardless of your shell settings.
+
+If you prefer unquoted globs, enable `globstar` in your shell first:
+
+```bash
+shopt -s globstar
+varlint ./**/*.sh
+```
+
 ## Rules
 
 | Code | Name | Severity | Description |

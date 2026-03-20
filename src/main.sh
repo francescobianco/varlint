@@ -49,7 +49,18 @@ main() {
         exit 1
         ;;
       *)
-        files+=("$1")
+        if [[ "$1" == *'*'* ]] || [[ "$1" == *'?'* ]]; then
+          local pattern
+          local expanded
+          pattern="$1"
+          shopt -s globstar nullglob 2>/dev/null
+          for expanded in $pattern; do
+            [ -f "$expanded" ] && files+=("$expanded")
+          done
+          shopt -u globstar nullglob 2>/dev/null
+        else
+          files+=("$1")
+        fi
         ;;
     esac
     shift
