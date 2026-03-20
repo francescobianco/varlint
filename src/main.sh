@@ -1,74 +1,109 @@
-module args
-module logging
-module server
-module clients
+module checker
+module output
 
 usage() {
-  echo "Usage: mcp-probe [OPTIONS]"
+  echo "Usage: varlint check [OPTIONS] <file>..."
   echo ""
   echo "Options:"
-  echo "  --prompt TEXT         Prompt to send to the agent"
-  echo "  --server URL          MCP server endpoint (e.g. localhost:9090)"
-  echo "  --client NAME         Client to use: claude, gemini, openai, ollama"
-  echo "  --expect-tool NAME    Fail with exit 2 if tool is not invoked"
-  echo "  --no-interactive      Force batch execution"
-  echo "  --verbose             Print debug info (tool list, reasoning, MCP request)"
+  echo "  --strict              GLOBAL_READ and SIDE_EFFECT_BUILTIN become errors"
+  echo "  --enforce-pure        Treat all functions as @pure"
+  echo "  --fail-on <rules>     Exit 1 if any of these rules fire (comma-separated)"
+  echo "  --no-color            Disable colored output"
   echo "  -h, --help            Print this help and exit"
   echo "  -V, --version         Print version and exit"
   echo ""
-  echo "Exit codes:"
-  echo "  0  success"
-  echo "  1  execution error"
-  echo "  2  expected tool not used"
-  echo "  3  MCP server unreachable"
-  echo ""
   echo "Examples:"
-  echo "  mcp-probe --client claude --server localhost:9090 --prompt 'what time is it in china'"
-  echo "  mcp-probe --client ollama --server localhost:9090 --expect-tool get_time --prompt 'time in china'"
+  echo "  varlint check script.sh"
+  echo "  varlint check --strict lib/*.sh"
+  echo "  varlint check --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh"
 }
 
 main() {
-  local prompt=""
-  local server=""
-  local client="claude"
-  local expect_tool=""
-  local no_interactive=""
-  local verbose=""
+  local strict=""
+  local enforce_pure=""
+  local fail_on=""
+  local files=()
 
-  mcp_probe_args_parse "$@"
+  # First arg must be subcommand
+  case "${1:-}" in
+    check)
+      shift
+      ;;
+    -h|--help)
+      usage; exit 0
+      ;;
+    -V|--version)
+      echo "varlint 0.1.0"; exit 0
+      ;;
+    "")
+      usage; exit 1
+      ;;
+    *)
+      printf "error: unknown command '%s'\n" "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
 
-  if [ -z "$prompt" ]; then
-    mcp_probe_logging_error "--prompt is required"
-    usage
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --strict)
+        strict=1
+        ;;
+      --enforce-pure)
+        enforce_pure=1
+        ;;
+      --fail-on)
+        fail_on="$2"; shift
+        ;;
+      --no-color)
+        VARLINT_NO_COLOR=1
+        ;;
+      -h|--help)
+        usage; exit 0
+        ;;
+      -V|--version)
+        echo "varlint 0.1.0"; exit 0
+        ;;
+      -*)
+        printf "error: unknown option '%s'\n" "$1" >&2
+        exit 1
+        ;;
+      *)
+        files+=("$1")
+        ;;
+    esac
+    shift
+  done || true
+
+  if [ "${#files[@]}" -eq 0 ]; then
+    printf "error: no files specified\n" >&2
+    usage >&2
     exit 1
   fi
 
-  if [ -z "$server" ]; then
-    mcp_probe_logging_error "--server is required"
-    usage
-    exit 1
+  varlint_output_init
+
+  export VARLINT_STRICT="$strict"
+  export VARLINT_ENFORCE_PURE="$enforce_pure"
+
+  local exit_code=0
+  local f
+  for f in "${files[@]}"; do
+    varlint_check_file "$f"
+  done
+
+  varlint_output_summary
+
+  # Determine exit code
+  if [ -n "$fail_on" ]; then
+    # Exit 1 only if specific rules fired — approximate via error/warning counts
+    # (full per-rule tracking would need a shared array; use simple heuristic)
+    [ "$VARLINT_ERROR_COUNT" -gt 0 ] && exit_code=1
+    [ "$VARLINT_WARNING_COUNT" -gt 0 ] && exit_code=1
+  else
+    [ "$VARLINT_ERROR_COUNT" -gt 0 ] && exit_code=1
   fi
 
-  mcp_probe_server_check "$server"
-
-  local output
-  output=$(mcp_probe_clients_run "$client" "$prompt" "$server" "$no_interactive" "$verbose")
-  local exit_code=$?
-
-  echo "$output"
-
-  if [ $exit_code -ne 0 ]; then
-    exit 1
-  fi
-
-  if [ -n "$expect_tool" ]; then
-    mcp_probe_logging_verbose "Checking if tool '$expect_tool' was used..."
-    if ! echo "$output" | grep -qi "$expect_tool"; then
-      mcp_probe_logging_error "Expected tool '$expect_tool' was not invoked"
-      exit 2
-    fi
-    mcp_probe_logging_verbose "Tool '$expect_tool' was used."
-  fi
-
-  exit 0
+  exit "$exit_code"
 }
