@@ -2,19 +2,19 @@
 # fixture: annotations.sh
 # expect: no violations (all suppressed by annotations)
 
-# @impure(reason="needs global state")
+# @varlint impure
 update_state() {
   state=1
   eval "$cmd"
   cd /tmp
 }
 
-# @allow GLOBAL_READ
+# @varlint allow=GLOBAL_READ
 read_config() {
   echo "$CONFIG_FILE"
 }
 
-# @pure
+# @varlint pure
 pure_fn() {
   local x="$1"
   echo "$x"

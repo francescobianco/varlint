@@ -7,6 +7,7 @@ usage() {
   echo "Options:"
   echo "  --strict              GLOBAL_READ and SIDE_EFFECT_BUILTIN become errors"
   echo "  --enforce-pure        Treat all functions as @pure"
+  echo "  --only <codes>        Show only violations matching these codes (comma-separated)"
   echo "  --fail-on <rules>     Exit 1 if any of these rules fire (comma-separated)"
   echo "  --no-color            Disable colored output"
   echo "  -h, --help            Print this help and exit"
@@ -14,36 +15,29 @@ usage() {
   echo ""
   echo "Examples:"
   echo "  varlint script.sh"
+  echo "  varlint --only VL07 script.sh"
+  echo "  varlint --only VL01,VL02 lib/*.sh"
   echo "  varlint --strict lib/*.sh"
-  echo "  varlint --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh"
 }
 
+# @varlint allow=GLOBAL_READ
 main() {
   local strict=""
   local enforce_pure=""
+  local only=""
   local fail_on=""
+  local no_color="${NO_COLOR:+1}"
   local files=()
 
   while [ $# -gt 0 ]; do
     case "$1" in
-      --strict)
-        strict=1
-        ;;
-      --enforce-pure)
-        enforce_pure=1
-        ;;
-      --fail-on)
-        fail_on="$2"; shift
-        ;;
-      --no-color)
-        VARLINT_NO_COLOR=1
-        ;;
-      -h|--help)
-        usage; exit 0
-        ;;
-      -V|--version)
-        echo "varlint 0.1.0"; exit 0
-        ;;
+      --strict)       strict=1 ;;
+      --enforce-pure) enforce_pure=1 ;;
+      --only)         only="$2"; shift ;;
+      --fail-on)      fail_on="$2"; shift ;;
+      --no-color)     no_color=1 ;;
+      -h|--help)      usage; exit 0 ;;
+      -V|--version)   echo "varlint 0.1.0"; exit 0 ;;
       -*)
         printf "error: unknown option '%s'\n" "$1" >&2
         exit 1
@@ -61,24 +55,18 @@ main() {
     exit 1
   fi
 
-  varlint_output_init
+  varlint_output_init "$no_color"
 
-  export VARLINT_STRICT="$strict"
-  export VARLINT_ENFORCE_PURE="$enforce_pure"
-
-  local exit_code=0
   local f
   for f in "${files[@]}"; do
-    varlint_check_file "$f"
+    varlint_check_file "$f" "$strict" "$enforce_pure" "$only"
   done
 
   varlint_output_summary
 
-  # Determine exit code
+  local exit_code=0
   if [ -n "$fail_on" ]; then
-    # Exit 1 only if specific rules fired — approximate via error/warning counts
-    # (full per-rule tracking would need a shared array; use simple heuristic)
-    [ "$VARLINT_ERROR_COUNT" -gt 0 ] && exit_code=1
+    [ "$VARLINT_ERROR_COUNT" -gt 0 ]   && exit_code=1
     [ "$VARLINT_WARNING_COUNT" -gt 0 ] && exit_code=1
   else
     [ "$VARLINT_ERROR_COUNT" -gt 0 ] && exit_code=1

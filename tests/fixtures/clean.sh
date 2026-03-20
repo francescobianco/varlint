@@ -2,7 +2,7 @@
 # fixture: clean.sh
 # expect: no violations
 
-# @pure
+# @varlint pure
 add() {
   local a="$1"
   local b="$2"
