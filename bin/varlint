@@ -3,7 +3,7 @@
 # @package: varlint
 # @build_type: bin
 # @build_with: Mush v0.2.0 (2026-03-20 develop)
-# @build_date: 2026-03-20T19:24:41Z
+# @build_date: 2026-03-20T19:28:23Z
 set -e
 use() { return 0; }
 extern() { return 0; }
@@ -184,7 +184,7 @@ _varlint_parse_local() {
   result=""
   for token in $stripped; do
     token="${token%%=*}"
-    [[ "$token" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && result="$result $token"
+    [[ "$token" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && result="${result:+$result }$token"
   done
   printf '%s' "$result"
 }

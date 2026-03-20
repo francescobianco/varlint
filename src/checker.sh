@@ -84,7 +84,7 @@ _varlint_parse_local() {
   result=""
   for token in $stripped; do
     token="${token%%=*}"
-    [[ "$token" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && result="$result $token"
+    [[ "$token" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && result="${result:+$result }$token"
   done
   printf '%s' "$result"
 }
