@@ -4,35 +4,35 @@ A static analysis tool for Bash that enforces **variable discipline** and **func
 
 varlint is opinionated: it doesn't just warn about risky patterns — it enforces architectural constraints. Inside a function, every variable must be explicitly declared `local`. Every side effect must be intentional.
 
----
-
 ## Install
 
 ```bash
 mush install
 ```
 
----
-
 ## Usage
 
 ```bash
-varlint check <file>...
-varlint check --strict lib/*.sh
-varlint check --enforce-pure script.sh
-varlint check --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh
+varlint [OPTIONS] <file>...
 ```
 
-### Options
+## Options
 
 | Flag | Description |
 |------|-------------|
 | `--strict` | `GLOBAL_READ` and `SIDE_EFFECT_BUILTIN` become errors |
-| `--enforce-pure` | All functions treated as `@pure` |
-| `--fail-on <rules>` | Exit 1 if specific rules fire (comma-separated) |
+| `--enforce-pure` | All functions treated as `@varlint pure` |
+| `--only <codes>` | Show only violations matching these codes (comma-separated) |
+| `--fail-on <rules>` | Exit 1 if any of these rules fire (comma-separated) |
 | `--no-color` | Disable colored output |
 
----
+```bash
+varlint script.sh
+varlint --strict lib/*.sh
+varlint --only VL07 script.sh
+varlint --only VL01,VL02 lib/*.sh
+varlint --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh
+```
 
 ## Rules
 
@@ -44,86 +44,84 @@ varlint check --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh
 | `VL04` | `INDIRECT_EXPANSION` | error | `${!var}` is not statically resolvable |
 | `VL05` | `DYNAMIC_SOURCE` | error | `source "$file"` with a variable path |
 | `VL06` | `SIDE_EFFECT_BUILTIN` | warning | `cd`, `export`, `read` modify external state |
-
----
+| `VL07` | `LOCAL_SPLIT` | warning | `local` declaration with inline value — declare and assign on separate lines |
 
 ## Output
 
 ```
-VL01 GLOBAL_WRITE
-error: variable 'x' assigned without local declaration in 'foo'
- --> script.sh:12
- hint: add 'local x' before the assignment, or annotate with @allow GLOBAL_WRITE
-
-VL02 GLOBAL_READ
-warning: variable '$name' read from global scope in 'foo'
- --> script.sh:14
- hint: pass as argument or declare 'local name', or annotate with @allow GLOBAL_READ
+script.sh:12 => Error: [VL01] variable 'x' assigned without local in 'foo'
+script.sh:14 => Warning: [VL02] variable '$name' read from global scope in 'foo'
+summary: 1 error(s), 1 warning(s)
 ```
 
----
+## Variable scope
 
-## Local declarations are never a smell
-
-`local nome=valore` is a valid and encouraged pattern. varlint registers the variable as local-scoped and never flags it:
+`local` declares scope. Assignment happens on the next line. Always.
 
 ```bash
-init() {
-  local count=0       # OK
-  local name="world"  # OK
-  local -r max=100    # OK
-  local a=1 b=2 c=3  # OK — multiple assignments
+# correct
+process() {
+  local result
+  local name
+  result=$(compute)
+  name="$1"
+  echo "$result $name"
+}
+
+# smell — VL07
+process() {
+  local result=$(compute)   # inline value
+  local name="$1"           # inline value
+  echo "$result $name"
 }
 ```
 
----
+Exception: `local -r` (readonly) may assign inline since the value cannot be changed later.
 
 ## Annotations
 
-### `@pure` — enforce full purity
+**`@varlint pure`** — enforce full purity (GLOBAL_READ and SIDE_EFFECT_BUILTIN become errors)
 
 ```bash
-# @pure
+# @varlint pure
 add() {
-  local a="$1"
-  local b="$2"
+  local a
+  local b
+  a="$1"
+  b="$2"
   echo $((a + b))
 }
 ```
 
-Inside a `@pure` function, `GLOBAL_READ` and `SIDE_EFFECT_BUILTIN` become errors.
-
-### `@allow` — allow specific rules
+**`@varlint allow=RULE,...`** — suppress specific rules for a function
 
 ```bash
-# @allow GLOBAL_READ,DYNAMIC_EVAL
+# @varlint allow=GLOBAL_READ,DYNAMIC_EVAL
 legacy_fn() {
   eval "$cmd"
   echo "$GLOBAL"
 }
 ```
 
-### `@impure` — suppress all violations
+**`@varlint impure`** — suppress all violations for a function
 
 ```bash
-# @impure(reason="wraps legacy shell code")
+# @varlint impure
 compat_fn() {
   eval "$cmd"
   cd /tmp
 }
 ```
 
----
-
 ## Ignore mechanisms
 
-### Disable a single line
+Disable a single line:
 
 ```bash
 RESULT=42  # varlint disable-line=GLOBAL_WRITE
 ```
 
-### Disable a block
+Disable a block:
 
 ```bash
 # varlint disable=GLOBAL_WRITE,DYNAMIC_EVAL
@@ -134,32 +132,23 @@ legacy_block() {
 # varlint enable
 ```
 
----
-
 ## Strict mode
 
 ```bash
-varlint check --strict script.sh
+varlint --strict script.sh
 ```
 
-Promotes warnings to errors:
-- `VL02 GLOBAL_READ` → error
-- `VL06 SIDE_EFFECT_BUILTIN` → error
-
----
+Promotes warnings to errors: `VL02 GLOBAL_READ` and `VL06 SIDE_EFFECT_BUILTIN`.
 
 ## Limitations
 
-varlint is a lightweight line-by-line parser, not a full Bash AST. Known limitations:
+varlint is a lightweight line-by-line parser, not a full Bash AST.
 
 - Single-line functions (`foo() { :; }`) are not analyzed
 - Brace counting can be confused by `{` inside strings or heredocs
 - `eval` content is never analyzed
-- Bash dynamic scoping means some false positives are possible
 
-Use `# @impure` or `# varlint disable` to acknowledge these cases explicitly.
-
----
+Use `# @varlint impure` or `# varlint disable` to acknowledge these cases explicitly.
 
 ## Running tests
 
