@@ -4,27 +4,34 @@
 
 # @varlint pure
 add() {
-  local a="$1"
-  local b="$2"
+  local a
+  local b
+  a="$1"
+  b="$2"
   echo $((a + b))
 }
 
 greet() {
-  local name="$1"
-  local greeting="Hello, $name!"
+  local name
+  local greeting
+  name="$1"
+  greeting="Hello, $name!"
   echo "$greeting"
 }
 
 parse_args() {
-  local input="$1"
-  local result=0
-  local flag=""
-  local count=0
-  local -r max=100
+  local input
+  local result
+  local flag
+  local count
+  input="$1"
+  result=0
+  flag=""
+  count=0
 
   if [ "$input" = "yes" ]; then
     result=1
   fi
 
-  echo "$result $flag $count $max"
+  echo "$result $flag $count"
 }

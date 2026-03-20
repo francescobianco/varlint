@@ -10,7 +10,8 @@ TMOUT TIMEFORMAT SHLVL DISPLAY "
 
 # @varlint allow=GLOBAL_READ
 _varlint_is_special() {
-  local var="$1"
+  local var
+  var="$1"
   case "$var" in
     [0-9]|[0-9][0-9]|'@'|'*'|'#'|'?'|'$'|'!'|'-'|'_') return 0 ;;
   esac
@@ -18,21 +19,45 @@ _varlint_is_special() {
 }
 
 _varlint_is_local() {
-  local var="$1"
-  local locals="$2"
+  local var
+  local locals
+  var="$1"
+  locals="$2"
   [[ " $locals " == *" $var "* ]]
 }
 
 _varlint_rule_off() {
-  local rule="$1"
-  local list="$2"
+  local rule
+  local list
+  rule="$1"
+  list="$2"
   [ -z "$list" ] && return 1
   [[ ",$list," == *",$rule,"* ]]
 }
 
 _varlint_emit() {
-  local code="$1" rule="$2" severity="$3" file="$4" line_num="$5" message="$6"
-  local global_off="$7" line_off="$8" allow="$9" impure="${10}" only="${11}"
+  local code
+  local rule
+  local severity
+  local file
+  local line_num
+  local message
+  local global_off
+  local line_off
+  local allow
+  local impure
+  local only
+  code="$1"
+  rule="$2"
+  severity="$3"
+  file="$4"
+  line_num="$5"
+  message="$6"
+  global_off="$7"
+  line_off="$8"
+  allow="$9"
+  impure="${10}"
+  only="${11}"
 
   [ "$impure" = "1" ]                     && return 0
   _varlint_rule_off "$rule" "$allow"      && return 0
@@ -48,10 +73,15 @@ _varlint_emit() {
 }
 
 _varlint_parse_local() {
-  local decl="$1"
-  local after="${decl#*local}"
-  local stripped=$(printf '%s' "$after" | sed 's/[[:space:]]*-[a-zA-Z]\+//g')
-  local result="" token
+  local decl
+  local after
+  local stripped
+  local result
+  local token
+  decl="$1"
+  after="${decl#*local}"
+  stripped=$(printf '%s' "$after" | sed 's/[[:space:]]*-[a-zA-Z]\+//g')
+  result=""
   for token in $stripped; do
     token="${token%%=*}"
     [[ "$token" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && result="$result $token"
@@ -59,65 +89,80 @@ _varlint_parse_local() {
   printf '%s' "$result"
 }
 
-# Returns 0 (true) if every token in the local decl has no '=' (bare declaration)
-_varlint_local_is_bare() {
-  local decl="$1"
-  local after="${decl#*local}"
-  local stripped=$(printf '%s' "$after" | sed 's/[[:space:]]*-[a-zA-Z]\+//g')
-  local token
-  for token in $stripped; do
-    [[ "$token" == *=* ]] && return 1
-  done
-  return 0
+# Returns 0 if the local declaration has an inline value (has '=')
+# Exception: -r flag (readonly must be assigned at declaration time)
+_varlint_local_has_value() {
+  local decl
+  decl="$1"
+  # readonly exception: local -r x=val is allowed
+  [[ "$decl" =~ [[:space:]]-r([[:space:]]|$) ]] && return 1
+  [[ "$decl" =~ = ]]
 }
 
 varlint_check_file() {
-  local file="$1"
-  local strict="$2"
-  local enforce_pure="$3"
-  local only="$4"
+  local file
+  local strict
+  local enforce_pure
+  local only
+  file="$1"
+  strict="$2"
+  enforce_pure="$3"
+  only="$4"
 
   if [ ! -f "$file" ]; then
     printf "error: file not found: %s\n" "$file" >&2
     return 1
   fi
 
-  local line_num=0
-  local in_func=0
-  local brace_depth=0
-  local func_name=""
-  local local_vars=""
-  local bare_locals=""
-  local global_off=""
-  local pending_ann=""
-  local func_pure=0
-  local func_allow=""
-  local func_impure=0
-  local line=""
+  local line_num
+  local in_func
+  local brace_depth
+  local func_name
+  local local_vars
+  local global_off
+  local pending_ann
+  local func_pure
+  local func_allow
+  local func_impure
+  local line
+  line_num=0
+  in_func=0
+  brace_depth=0
+  func_name=""
+  local_vars=""
+  global_off=""
+  pending_ann=""
+  func_pure=0
+  func_allow=""
+  func_impure=0
+  line=""
 
   while IFS= read -r line || [ -n "$line" ]; do
     line_num=$((line_num + 1))
 
-    local s="${line#"${line%%[![:space:]]*}"}"
+    local s
+    s="${line#"${line%%[![:space:]]*}"}"
 
     # ── annotations and disable comments ──────────────────────────────────
     case "$s" in
-      "# varlint enable"*)  global_off="";                         continue ;;
-      "# varlint disable="*) global_off="${s#*=}";                 continue ;;
-      "# @varlint pure"*)    pending_ann="pure";                        continue ;;
+      "# varlint enable"*)   global_off="";                          continue ;;
+      "# varlint disable="*) global_off="${s#*=}";                   continue ;;
+      "# @varlint pure"*)    pending_ann="pure";                     continue ;;
       "# @varlint allow="*)  pending_ann="allow:${s#*@varlint allow=}"; continue ;;
-      "# @varlint impure"*)  pending_ann="impure";                      continue ;;
-      "#"*)                                                         continue ;;
+      "# @varlint impure"*)  pending_ann="impure";                   continue ;;
+      "#"*)                                                           continue ;;
     esac
 
-    local line_off=""
+    local line_off
+    line_off=""
     if [[ "$line" =~ \#[[:space:]]*varlint[[:space:]]+disable-line=([A-Za-z_,]+) ]]; then
       line_off="${BASH_REMATCH[1]}"
     fi
 
     # ── outside function: detect start ────────────────────────────────────
     if [ "$in_func" -eq 0 ]; then
-      local fname=""
+      local fname
+      fname=""
       if [[ "$s" =~ ^([A-Za-z_][A-Za-z0-9_:.+-]*)[[:space:]]*\(\) ]]; then
         fname="${BASH_REMATCH[1]}"
       elif [[ "$s" =~ ^function[[:space:]]+([A-Za-z_][A-Za-z0-9_:.+-]*) ]]; then
@@ -127,8 +172,9 @@ varlint_check_file() {
       if [ -n "$fname" ]; then
         func_name="$fname"
         local_vars=""
-        bare_locals=""
-        func_pure=0; func_allow=""; func_impure=0
+        func_pure=0
+        func_allow=""
+        func_impure=0
         case "$pending_ann" in
           pure)    func_pure=1 ;;
           allow:*) func_allow="${pending_ann#allow:}" ;;
@@ -136,8 +182,10 @@ varlint_check_file() {
         esac
         pending_ann=""
 
-        local opens=$(printf '%s' "$line" | tr -cd '{' | wc -c)
-        local closes=$(printf '%s' "$line" | tr -cd '}' | wc -c)
+        local opens
+        local closes
+        opens=$(printf '%s' "$line" | tr -cd '{' | wc -c)
+        closes=$(printf '%s' "$line" | tr -cd '}' | wc -c)
         brace_depth=$((opens - closes))
         [ "$brace_depth" -gt 0 ] && in_func=1
         continue
@@ -149,29 +197,42 @@ varlint_check_file() {
     fi
 
     # ── inside function: track depth ──────────────────────────────────────
-    local opens=$(printf '%s' "$line" | tr -cd '{' | wc -c)
-    local closes=$(printf '%s' "$line" | tr -cd '}' | wc -c)
+    local opens
+    local closes
+    opens=$(printf '%s' "$line" | tr -cd '{' | wc -c)
+    closes=$(printf '%s' "$line" | tr -cd '}' | wc -c)
     brace_depth=$((brace_depth + opens - closes))
 
     if [ "$brace_depth" -le 0 ]; then
-      in_func=0; func_name=""; local_vars=""; bare_locals=""
+      in_func=0
+      func_name=""
+      local_vars=""
       continue
     fi
 
-    local code=$(printf '%s' "$line" | sed 's/[[:space:]]*#.*$//')
+    local code
+    code=$(printf '%s' "$line" | sed 's/[[:space:]]*#.*$//')
 
-    local sev_read="warning"
-    local sev_side="warning"
+    local sev_read
+    local sev_side
+    sev_read="warning"
+    sev_side="warning"
     [ "$strict" = "1" ]       && sev_read="error" && sev_side="error"
     [ "$enforce_pure" = "1" ] && sev_read="error"
     [ "$func_pure" = "1" ]    && sev_read="error" && sev_side="error"
 
     # ── local declaration ─────────────────────────────────────────────────
     if [[ "$code" =~ ^[[:space:]]*local[[:space:]] ]]; then
-      local new_vars=$(_varlint_parse_local "$code")
+      local new_vars
+      new_vars=$(_varlint_parse_local "$code")
       local_vars="$local_vars $new_vars"
-      if _varlint_local_is_bare "$code"; then
-        bare_locals="$bare_locals $new_vars"
+
+      # VL07: inline value assignment in local declaration is a smell
+      if _varlint_local_has_value "$code"; then
+        _varlint_emit "VL07" "LOCAL_SPLIT" "warning" \
+          "$file" "$line_num" \
+          "inline value in 'local' declaration in '$func_name': use 'local $new_vars' then assign separately" \
+          "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
       fi
       continue
     fi
@@ -181,7 +242,7 @@ varlint_check_file() {
       _varlint_emit "VL03" "DYNAMIC_EVAL" "error" \
         "$file" "$line_num" \
         "'eval' used in '$func_name': dynamic execution prevents static analysis" \
-        "$global_off" "$line_off" "$func_allow" "$func_impure"
+        "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
     fi
 
     # ── VL04 INDIRECT_EXPANSION ───────────────────────────────────────────
@@ -189,7 +250,7 @@ varlint_check_file() {
       _varlint_emit "VL04" "INDIRECT_EXPANSION" "error" \
         "$file" "$line_num" \
         "indirect expansion used in '$func_name': not statically resolvable" \
-        "$global_off" "$line_off" "$func_allow" "$func_impure"
+        "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
     fi
 
     # ── VL05 DYNAMIC_SOURCE ───────────────────────────────────────────────
@@ -197,40 +258,35 @@ varlint_check_file() {
       _varlint_emit "VL05" "DYNAMIC_SOURCE" "error" \
         "$file" "$line_num" \
         "dynamic source with variable path in '$func_name'" \
-        "$global_off" "$line_off" "$func_allow" "$func_impure"
+        "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
     fi
 
     # ── VL06 SIDE_EFFECT_BUILTIN ──────────────────────────────────────────
     if [[ "$code" =~ ^[[:space:]]*(cd|export|read)[[:space:]] ]] || \
        [[ "$code" =~ ^[[:space:]]*(cd|export|read)$ ]]; then
-      local builtin="${BASH_REMATCH[1]}"
+      local builtin
+      builtin="${BASH_REMATCH[1]}"
       _varlint_emit "VL06" "SIDE_EFFECT_BUILTIN" "$sev_side" \
         "$file" "$line_num" \
         "side-effect builtin '$builtin' in '$func_name'" \
-        "$global_off" "$line_off" "$func_allow" "$func_impure"
+        "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
     fi
 
     # ── VL01 GLOBAL_WRITE ─────────────────────────────────────────────────
     if [[ "$code" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)= ]]; then
-      local var="${BASH_REMATCH[1]}"
+      local var
+      var="${BASH_REMATCH[1]}"
       if ! _varlint_is_local "$var" "$local_vars" && ! _varlint_is_special "$var"; then
         _varlint_emit "VL01" "GLOBAL_WRITE" "error" \
           "$file" "$line_num" \
           "variable '$var' assigned without local in '$func_name'" \
-          "$global_off" "$line_off" "$func_allow" "$func_impure"
-      fi
-
-      # ── VL07 LOCAL_SPLIT ─────────────────────────────────────────────────
-      if _varlint_is_local "$var" "$bare_locals"; then
-        _varlint_emit "VL07" "LOCAL_SPLIT" "warning" \
-          "$file" "$line_num" \
-          "'local $var' declared without value then assigned separately in '$func_name': prefer 'local $var=value'" \
-          "$global_off" "$line_off" "$func_allow" "$func_impure"
+          "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
       fi
     fi
 
     # ── VL02 GLOBAL_READ ──────────────────────────────────────────────────
-    local var_refs=$(printf '%s' "$code" | grep -oE '\$\{?[A-Za-z_][A-Za-z0-9_]*' | sed 's/[${}]//g' | sort -u)
+    local var_refs
+    var_refs=$(printf '%s' "$code" | grep -oE '\$\{?[A-Za-z_][A-Za-z0-9_]*' | sed 's/[${}]//g' | sort -u)
 
     local var
     while IFS= read -r var; do
@@ -240,7 +296,7 @@ varlint_check_file() {
       _varlint_emit "VL02" "GLOBAL_READ" "$sev_read" \
         "$file" "$line_num" \
         "variable '\$$var' read from global scope in '$func_name'" \
-        "$global_off" "$line_off" "$func_allow" "$func_impure"
+        "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
     done <<< "$var_refs"
 
   done < "$file"

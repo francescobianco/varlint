@@ -16,7 +16,8 @@ read_config() {
 
 # @varlint pure
 pure_fn() {
-  local x="$1"
+  local x
+  x="$1"
   echo "$x"
 }
 

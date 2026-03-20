@@ -2,7 +2,8 @@ _VARLINT_COLOR=1
 
 # @varlint allow=GLOBAL_WRITE
 varlint_output_init() {
-  local no_color="$1"
+  local no_color
+  no_color="$1"
   if [ "$no_color" = "1" ] || [ "${TERM:-}" = "dumb" ]; then
     _VARLINT_COLOR=0
   else
@@ -11,7 +12,11 @@ varlint_output_init() {
 }
 
 # @varlint allow=GLOBAL_READ
-_cc() { [ "$_VARLINT_COLOR" = "1" ] && printf '%b' "$1"; }
+_cc() {
+  local seq
+  seq="$1"
+  [ "$_VARLINT_COLOR" = "1" ] && printf '%b' "$seq"
+}
 
 cc_reset()  { _cc '\033[0m'; }
 cc_bold()   { _cc '\033[1m'; }
@@ -23,11 +28,16 @@ VARLINT_WARNING_COUNT=0
 
 # @varlint allow=GLOBAL_WRITE
 varlint_output_violation() {
-  local code="$1"
-  local severity="$2"
-  local file="$3"
-  local line_num="$4"
-  local message="$5"
+  local code
+  local severity
+  local file
+  local line_num
+  local message
+  code="$1"
+  severity="$2"
+  file="$3"
+  line_num="$4"
+  message="$5"
 
   if [ "$severity" = "error" ]; then
     VARLINT_ERROR_COUNT=$((VARLINT_ERROR_COUNT + 1))

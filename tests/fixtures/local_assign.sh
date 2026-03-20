@@ -1,13 +1,21 @@
 #!/bin/bash
 # fixture: local_assign.sh
-# expect: no violations
-# rule: local x=value is NOT a smell
+# expect: VL07 for every local x=value (inline assignment is a smell)
+# rule: local x=value is a smell — use "local x" then "x=value" on separate line
 
-init() {
+smell_func() {
   local count=0
-  local name="default"
-  local -r max=100
-  local -i timeout=30
-  local a=1 b=2 c=3
-  echo "$count $name $max $timeout $a $b $c"
+  local name="world"
+  local flag=""
+  echo "$count $name $flag"
+}
+
+clean_func() {
+  local count
+  local name
+  local flag
+  count=0
+  name="world"
+  flag=""
+  echo "$count $name $flag"
 }

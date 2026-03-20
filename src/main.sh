@@ -22,12 +22,18 @@ usage() {
 
 # @varlint allow=GLOBAL_READ
 main() {
-  local strict=""
-  local enforce_pure=""
-  local only=""
-  local fail_on=""
-  local no_color="${NO_COLOR:+1}"
-  local files=()
+  local strict
+  local enforce_pure
+  local only
+  local fail_on
+  local no_color
+  local files
+  strict=""
+  enforce_pure=""
+  only=""
+  fail_on=""
+  no_color="${NO_COLOR:+1}"
+  files=()
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -64,7 +70,8 @@ main() {
 
   varlint_output_summary
 
-  local exit_code=0
+  local exit_code
+  exit_code=0
   if [ -n "$fail_on" ]; then
     [ "$VARLINT_ERROR_COUNT" -gt 0 ]   && exit_code=1
     [ "$VARLINT_WARNING_COUNT" -gt 0 ] && exit_code=1
