@@ -2,9 +2,8 @@
 # @BP010: Release metadata
 # @package: varlint
 # @build_type: bin
-# @build_with: inject file VERSION
-inject file MUSH.md
-# @build_date: 2026-03-20T18:29:59Z
+# @build_with: Mush v0.2.0 (2026-03-20 develop)
+# @build_date: 2026-03-20T19:00:17Z
 set -e
 use() { return 0; }
 extern() { return 0; }
@@ -14,11 +13,12 @@ public() { return 0; }
 embed() { return 0; }
 inject() { return 0; }
 ## BP004: Compile the entrypoint
+
 module checker
 module output
 
 usage() {
-  echo "Usage: varlint check [OPTIONS] <file>..."
+  echo "Usage: varlint [OPTIONS] <file>..."
   echo ""
   echo "Options:"
   echo "  --strict              GLOBAL_READ and SIDE_EFFECT_BUILTIN become errors"
@@ -29,9 +29,9 @@ usage() {
   echo "  -V, --version         Print version and exit"
   echo ""
   echo "Examples:"
-  echo "  varlint check script.sh"
-  echo "  varlint check --strict lib/*.sh"
-  echo "  varlint check --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh"
+  echo "  varlint script.sh"
+  echo "  varlint --strict lib/*.sh"
+  echo "  varlint --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh"
 }
 
 main() {
@@ -39,27 +39,6 @@ main() {
   local enforce_pure=""
   local fail_on=""
   local files=()
-
-  # First arg must be subcommand
-  case "${1:-}" in
-    check)
-      shift
-      ;;
-    -h|--help)
-      usage; exit 0
-      ;;
-    -V|--version)
-      echo "varlint 0.1.0"; exit 0
-      ;;
-    "")
-      usage; exit 1
-      ;;
-    *)
-      printf "error: unknown command '%s'\n" "$1" >&2
-      usage >&2
-      exit 1
-      ;;
-  esac
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -122,7 +101,8 @@ main() {
   fi
 
   exit "$exit_code"
-}# Rule codes
+}
+# Rule codes
 _R_GLOBAL_WRITE="VL01"
 _R_GLOBAL_READ="VL02"
 _R_DYNAMIC_EVAL="VL03"
@@ -400,7 +380,8 @@ varlint_check_file() {
     done <<< "$var_refs"
 
   done < "$file"
-}_VARLINT_COLOR=1
+}
+_VARLINT_COLOR=1
 
 varlint_output_init() {
   if [ -n "${NO_COLOR:-}" ] || [ "${TERM:-}" = "dumb" ] || [ "${VARLINT_NO_COLOR:-0}" = "1" ]; then
@@ -427,20 +408,17 @@ varlint_output_violation() {
   local file="$4"
   local line_num="$5"
   local message="$6"
-  local hint="$7"
+  # hint ($7) reserved for future use
 
   if [ "$severity" = "error" ]; then
     VARLINT_ERROR_COUNT=$((VARLINT_ERROR_COUNT + 1))
-    printf "$(cc_bold)$(cc_red)%s %s$(cc_reset)\n" "$code" "$rule"
-    printf "$(cc_red)error$(cc_reset): %s\n" "$message"
+    printf "%s:%s => $(cc_red)$(cc_bold)Error$(cc_reset): [%s] %s\n" \
+      "$file" "$line_num" "$code" "$message"
   else
     VARLINT_WARNING_COUNT=$((VARLINT_WARNING_COUNT + 1))
-    printf "$(cc_bold)$(cc_yellow)%s %s$(cc_reset)\n" "$code" "$rule"
-    printf "$(cc_yellow)warning$(cc_reset): %s\n" "$message"
+    printf "%s:%s => $(cc_yellow)$(cc_bold)Warning$(cc_reset): [%s] %s\n" \
+      "$file" "$line_num" "$code" "$message"
   fi
-
-  printf " $(cc_cyan)-->$(cc_reset) %s:%s\n" "$file" "$line_num"
-  printf " $(cc_blue)hint$(cc_reset): %s\n\n" "$hint"
 }
 
 varlint_output_summary() {
@@ -450,5 +428,6 @@ varlint_output_summary() {
     printf "$(cc_bold)summary$(cc_reset): %d error(s), %d warning(s)\n" \
       "$VARLINT_ERROR_COUNT" "$VARLINT_WARNING_COUNT"
   fi
-}## BP005: Execute the entrypoint
+}
+## BP005: Execute the entrypoint
 main "$@"

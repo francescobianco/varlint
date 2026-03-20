@@ -2,7 +2,7 @@ module checker
 module output
 
 usage() {
-  echo "Usage: varlint check [OPTIONS] <file>..."
+  echo "Usage: varlint [OPTIONS] <file>..."
   echo ""
   echo "Options:"
   echo "  --strict              GLOBAL_READ and SIDE_EFFECT_BUILTIN become errors"
@@ -13,9 +13,9 @@ usage() {
   echo "  -V, --version         Print version and exit"
   echo ""
   echo "Examples:"
-  echo "  varlint check script.sh"
-  echo "  varlint check --strict lib/*.sh"
-  echo "  varlint check --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh"
+  echo "  varlint script.sh"
+  echo "  varlint --strict lib/*.sh"
+  echo "  varlint --fail-on GLOBAL_WRITE,DYNAMIC_EVAL script.sh"
 }
 
 main() {
@@ -23,27 +23,6 @@ main() {
   local enforce_pure=""
   local fail_on=""
   local files=()
-
-  # First arg must be subcommand
-  case "${1:-}" in
-    check)
-      shift
-      ;;
-    -h|--help)
-      usage; exit 0
-      ;;
-    -V|--version)
-      echo "varlint 0.1.0"; exit 0
-      ;;
-    "")
-      usage; exit 1
-      ;;
-    *)
-      printf "error: unknown command '%s'\n" "$1" >&2
-      usage >&2
-      exit 1
-      ;;
-  esac
 
   while [ $# -gt 0 ]; do
     case "$1" in

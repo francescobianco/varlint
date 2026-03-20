@@ -25,20 +25,17 @@ varlint_output_violation() {
   local file="$4"
   local line_num="$5"
   local message="$6"
-  local hint="$7"
+  # hint ($7) reserved for future use
 
   if [ "$severity" = "error" ]; then
     VARLINT_ERROR_COUNT=$((VARLINT_ERROR_COUNT + 1))
-    printf "$(cc_bold)$(cc_red)%s %s$(cc_reset)\n" "$code" "$rule"
-    printf "$(cc_red)error$(cc_reset): %s\n" "$message"
+    printf "%s:%s => $(cc_red)$(cc_bold)Error$(cc_reset): [%s] %s\n" \
+      "$file" "$line_num" "$code" "$message"
   else
     VARLINT_WARNING_COUNT=$((VARLINT_WARNING_COUNT + 1))
-    printf "$(cc_bold)$(cc_yellow)%s %s$(cc_reset)\n" "$code" "$rule"
-    printf "$(cc_yellow)warning$(cc_reset): %s\n" "$message"
+    printf "%s:%s => $(cc_yellow)$(cc_bold)Warning$(cc_reset): [%s] %s\n" \
+      "$file" "$line_num" "$code" "$message"
   fi
-
-  printf " $(cc_cyan)-->$(cc_reset) %s:%s\n" "$file" "$line_num"
-  printf " $(cc_blue)hint$(cc_reset): %s\n\n" "$hint"
 }
 
 varlint_output_summary() {
