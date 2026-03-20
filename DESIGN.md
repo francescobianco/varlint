@@ -118,7 +118,7 @@ This enables high performance and reasonable accuracy for most scripts.
 
 Each rule has:
 
-* Code (e.g., `MUSH001`)
+* Code (e.g., `VL01`)
 * Name
 * Severity (`error`, `warning`)
 * Description
@@ -321,11 +321,11 @@ varlint check --fail-on=GLOBAL_WRITE,DYNAMIC_EVAL
 Example:
 
 ```
-MUSH001 GLOBAL_WRITE
+VL01 GLOBAL_WRITE
 error: variable 'x' assigned without local declaration
 hint: add 'local x' or annotate with @allow GLOBAL_WRITE
 
-MUSH002 GLOBAL_READ
+VL02 GLOBAL_READ
 warning: variable 'c' used but not defined in local scope
 hint: pass as argument or declare local
 ```
