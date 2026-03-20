@@ -3,7 +3,7 @@
 # @package: varlint
 # @build_type: bin
 # @build_with: Mush v0.2.0 (2026-03-20 develop)
-# @build_date: 2026-03-20T19:43:25Z
+# @build_date: 2026-03-20T19:46:52Z
 set -e
 use() { return 0; }
 extern() { return 0; }

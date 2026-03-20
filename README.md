@@ -7,7 +7,15 @@ varlint is opinionated: it doesn't just warn about risky patterns — it enforce
 ## Install
 
 ```bash
-mush install
+curl -fsSL https://raw.githubusercontent.com/francescobianco/varlint/main/bin/varlint -o /usr/local/bin/varlint
+chmod +x /usr/local/bin/varlint
+```
+
+Or without root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/francescobianco/varlint/main/bin/varlint -o ~/.local/bin/varlint
+chmod +x ~/.local/bin/varlint
 ```
 
 ## Usage
