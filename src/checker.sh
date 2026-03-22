@@ -9,7 +9,7 @@ LANG LANGUAGE LC_ALL LC_COLLATE LC_CTYPE LC_MESSAGES LC_NUMERIC LC_TIME \
 TMOUT TIMEFORMAT SHLVL DISPLAY "
 
 # @varlint allow=GLOBAL_READ
-_varlint_is_special() {
+varlint_checker_is_special() {
   local var
   var="$1"
   case "$var" in
@@ -18,7 +18,7 @@ _varlint_is_special() {
   [[ "$_VARLINT_SPECIAL" == *" $var "* ]]
 }
 
-_varlint_is_local() {
+varlint_checker_is_local() {
   local var
   local locals
   var="$1"
@@ -26,7 +26,7 @@ _varlint_is_local() {
   [[ " $locals " == *" $var "* ]]
 }
 
-_varlint_rule_off() {
+varlint_checker_rule_off() {
   local rule
   local list
   rule="$1"
@@ -35,7 +35,7 @@ _varlint_rule_off() {
   [[ ",$list," == *",$rule,"* ]]
 }
 
-_varlint_emit() {
+varlint_checker_emit() {
   local code
   local rule
   local severity
@@ -59,20 +59,20 @@ _varlint_emit() {
   impure="${10}"
   only="${11}"
 
-  [ "$impure" = "1" ]                     && return 0
-  _varlint_rule_off "$rule" "$allow"      && return 0
-  _varlint_rule_off "$rule" "$global_off" && return 0
-  _varlint_rule_off "$rule" "$line_off"   && return 0
+  [ "$impure" = "1" ]                            && return 0
+  varlint_checker_rule_off "$rule" "$allow"      && return 0
+  varlint_checker_rule_off "$rule" "$global_off" && return 0
+  varlint_checker_rule_off "$rule" "$line_off"   && return 0
 
   # --only filter: if set, show only the listed codes
-  if [ -n "$only" ] && ! _varlint_rule_off "$code" "$only"; then
+  if [ -n "$only" ] && ! varlint_checker_rule_off "$code" "$only"; then
     return 0
   fi
 
   varlint_output_violation "$code" "$severity" "$file" "$line_num" "$message"
 }
 
-_varlint_parse_local() {
+varlint_checker_parse_local() {
   local decl
   local after
   local stripped
@@ -91,7 +91,7 @@ _varlint_parse_local() {
 
 # Returns 0 if the local declaration has an inline value (has '=')
 # Exception: -r flag (readonly must be assigned at declaration time)
-_varlint_local_has_value() {
+varlint_checker_local_has_value() {
   local decl
   decl="$1"
   # readonly exception: local -r x=val is allowed
@@ -99,7 +99,7 @@ _varlint_local_has_value() {
   [[ "$decl" =~ = ]]
 }
 
-varlint_check_file() {
+varlint_checker_check_file() {
   local file
   local strict
   local enforce_pure
@@ -224,12 +224,12 @@ varlint_check_file() {
     # ── local declaration ─────────────────────────────────────────────────
     if [[ "$code" =~ ^[[:space:]]*local[[:space:]] ]]; then
       local new_vars
-      new_vars=$(_varlint_parse_local "$code")
+      new_vars=$(varlint_checker_parse_local "$code")
       local_vars="$local_vars $new_vars"
 
       # VL07: inline value assignment in local declaration is a smell
-      if _varlint_local_has_value "$code"; then
-        _varlint_emit "VL07" "LOCAL_SPLIT" "warning" \
+      if varlint_checker_local_has_value "$code"; then
+        varlint_checker_emit "VL07" "LOCAL_SPLIT" "warning" \
           "$file" "$line_num" \
           "inline value in 'local' declaration in '$func_name': use 'local $new_vars' then assign separately" \
           "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
@@ -239,7 +239,7 @@ varlint_check_file() {
 
     # ── VL03 DYNAMIC_EVAL ─────────────────────────────────────────────────
     if [[ "$code" =~ (^|[[:space:]])eval[[:space:]] ]]; then
-      _varlint_emit "VL03" "DYNAMIC_EVAL" "error" \
+      varlint_checker_emit "VL03" "DYNAMIC_EVAL" "error" \
         "$file" "$line_num" \
         "'eval' used in '$func_name': dynamic execution prevents static analysis" \
         "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
@@ -247,7 +247,7 @@ varlint_check_file() {
 
     # ── VL04 INDIRECT_EXPANSION ───────────────────────────────────────────
     if [[ "$code" =~ \$\{! ]]; then
-      _varlint_emit "VL04" "INDIRECT_EXPANSION" "error" \
+      varlint_checker_emit "VL04" "INDIRECT_EXPANSION" "error" \
         "$file" "$line_num" \
         "indirect expansion used in '$func_name': not statically resolvable" \
         "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
@@ -255,7 +255,7 @@ varlint_check_file() {
 
     # ── VL05 DYNAMIC_SOURCE ───────────────────────────────────────────────
     if [[ "$code" =~ ^[[:space:]]*(source|\.)[[:space:]].*\$ ]]; then
-      _varlint_emit "VL05" "DYNAMIC_SOURCE" "error" \
+      varlint_checker_emit "VL05" "DYNAMIC_SOURCE" "error" \
         "$file" "$line_num" \
         "dynamic source with variable path in '$func_name'" \
         "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
@@ -266,7 +266,7 @@ varlint_check_file() {
        [[ "$code" =~ ^[[:space:]]*(cd|export|read)$ ]]; then
       local builtin
       builtin="${BASH_REMATCH[1]}"
-      _varlint_emit "VL06" "SIDE_EFFECT_BUILTIN" "$sev_side" \
+      varlint_checker_emit "VL06" "SIDE_EFFECT_BUILTIN" "$sev_side" \
         "$file" "$line_num" \
         "side-effect builtin '$builtin' in '$func_name'" \
         "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
@@ -276,8 +276,8 @@ varlint_check_file() {
     if [[ "$code" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)= ]]; then
       local var
       var="${BASH_REMATCH[1]}"
-      if ! _varlint_is_local "$var" "$local_vars" && ! _varlint_is_special "$var"; then
-        _varlint_emit "VL01" "GLOBAL_WRITE" "error" \
+      if ! varlint_checker_is_local "$var" "$local_vars" && ! varlint_checker_is_special "$var"; then
+        varlint_checker_emit "VL01" "GLOBAL_WRITE" "error" \
           "$file" "$line_num" \
           "variable '$var' assigned without local in '$func_name'" \
           "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"
@@ -291,9 +291,9 @@ varlint_check_file() {
     local var
     while IFS= read -r var; do
       [ -z "$var" ] && continue
-      _varlint_is_special "$var" && continue
-      _varlint_is_local "$var" "$local_vars" && continue
-      _varlint_emit "VL02" "GLOBAL_READ" "$sev_read" \
+      varlint_checker_is_special "$var" && continue
+      varlint_checker_is_local "$var" "$local_vars" && continue
+      varlint_checker_emit "VL02" "GLOBAL_READ" "$sev_read" \
         "$file" "$line_num" \
         "variable '\$$var' read from global scope in '$func_name'" \
         "$global_off" "$line_off" "$func_allow" "$func_impure" "$only"

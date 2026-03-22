@@ -5,4 +5,11 @@ edition = "2022"
 
 # See more keys and their definitions at https://mush.javanile.org/manifest.html
 
+[features]
+name_convention = "true"
+
 [dependencies]
+
+
+[dev-dependencies]
+name_convention = "mush name_convention develop"

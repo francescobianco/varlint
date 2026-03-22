@@ -12,16 +12,16 @@ varlint_output_init() {
 }
 
 # @varlint allow=GLOBAL_READ
-_cc() {
+varlint_output_cc() {
   local seq
   seq="$1"
   [ "$_VARLINT_COLOR" = "1" ] && printf '%b' "$seq"
 }
 
-cc_reset()  { _cc '\033[0m'; }
-cc_bold()   { _cc '\033[1m'; }
-cc_red()    { _cc '\033[0;31m'; }
-cc_yellow() { _cc '\033[0;33m'; }
+varlint_output_cc_reset()  { varlint_output_cc '\033[0m'; }
+varlint_output_cc_bold()   { varlint_output_cc '\033[1m'; }
+varlint_output_cc_red()    { varlint_output_cc '\033[0;31m'; }
+varlint_output_cc_yellow() { varlint_output_cc '\033[0;33m'; }
 
 VARLINT_ERROR_COUNT=0
 VARLINT_WARNING_COUNT=0
@@ -41,11 +41,11 @@ varlint_output_violation() {
 
   if [ "$severity" = "error" ]; then
     VARLINT_ERROR_COUNT=$((VARLINT_ERROR_COUNT + 1))
-    printf "%s:%s => $(cc_red)$(cc_bold)Error$(cc_reset): [%s] %s\n" \
+    printf "%s:%s => $(varlint_output_cc_red)$(varlint_output_cc_bold)Error$(varlint_output_cc_reset): [%s] %s\n" \
       "$file" "$line_num" "$code" "$message"
   else
     VARLINT_WARNING_COUNT=$((VARLINT_WARNING_COUNT + 1))
-    printf "%s:%s => $(cc_yellow)$(cc_bold)Warning$(cc_reset): [%s] %s\n" \
+    printf "%s:%s => $(varlint_output_cc_yellow)$(varlint_output_cc_bold)Warning$(varlint_output_cc_reset): [%s] %s\n" \
       "$file" "$line_num" "$code" "$message"
   fi
 }

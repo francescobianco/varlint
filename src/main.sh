@@ -1,7 +1,7 @@
 module checker
 module output
 
-usage() {
+varlint_usage() {
   echo "Usage: varlint [OPTIONS] <file>..."
   echo ""
   echo "Options:"
@@ -42,7 +42,7 @@ main() {
       --only)         only="$2"; shift ;;
       --fail-on)      fail_on="$2"; shift ;;
       --no-color)     no_color=1 ;;
-      -h|--help)      usage; exit 0 ;;
+      -h|--help)      varlint_usage; exit 0 ;;
       -V|--version)   echo "varlint 0.1.0"; exit 0 ;;
       -*)
         printf "error: unknown option '%s'\n" "$1" >&2
@@ -68,7 +68,7 @@ main() {
 
   if [ "${#files[@]}" -eq 0 ]; then
     printf "error: no files specified\n" >&2
-    usage >&2
+    varlint_usage >&2
     exit 1
   fi
 
@@ -76,7 +76,7 @@ main() {
 
   local f
   for f in "${files[@]}"; do
-    varlint_check_file "$f" "$strict" "$enforce_pure" "$only"
+    varlint_checker_check_file "$f" "$strict" "$enforce_pure" "$only"
   done
 
   varlint_output_summary
